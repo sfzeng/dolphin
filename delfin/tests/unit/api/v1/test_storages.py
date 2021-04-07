@@ -20,6 +20,7 @@ from delfin import db
 from delfin import exception
 from delfin import test
 from delfin.api.v1.storages import StorageController
+from delfin.api.v1 import storages
 from delfin.tests.unit.api import fakes
 
 
@@ -285,3 +286,123 @@ class TestStorageController(test.TestCase):
         self.assertRaises(exception.StorageAlreadyExists,
                           self.controller.create,
                           req, body=body)
+
+    def test_is_same_access_info(self):
+        access_info_a = {
+            'model': 'fake_driver',
+            'vendor': 'fake_storage',
+            'rest': {
+                'host': '1.2.3.4',
+                'port': 123
+            },
+            'ssh': {
+                'host': '1.2.3.4',
+                'port': 234
+            }
+        }
+        access_info_b = {
+            'model': 'fake_driver',
+            'vendor': 'fake_storage',
+            'rest': {
+                'host': '1.2.3.4',
+                'port': 123
+            },
+            'ssh': {
+                'host': '1.2.3.5',
+                'port': 234
+            }
+        }
+        access_info_c = {
+            'model': 'fake_driver',
+            'vendor': 'fake_storage',
+            'rest': {
+                'host': '1.2.3.4',
+                'port': 1234
+            },
+            'ssh': {
+                'host': '1.2.3.4',
+                'port': 234
+            }
+        }
+        access_info_d = {
+            'model': 'fake_driver',
+            'vendor': 'fake_storage',
+            'rest': {
+                'host': '1.2.3.4',
+                'port': 123
+            },
+            'ssh': {
+                'host': '1.2.3.4',
+                'port': 234
+            }
+        }
+        ret = storages._is_same_access_info(access_info_a, access_info_b)
+        self.assertEqual(ret, False)
+
+        ret = storages._is_same_access_info(access_info_a, access_info_c)
+        self.assertEqual(ret, False)
+
+        ret = storages._is_same_access_info(access_info_a, access_info_d)
+        self.assertEqual(ret, True)
+
+    def test_get_host_port(self):
+        INPUT = 0
+        EXPETECT_RET = 1
+        test_case = [
+            [
+                {
+                    'model': 'fake_driver',
+                    'vendor': 'fake_storage',
+                    'rest': {
+                        'host': '1.2.3.4',
+                        'port': 123
+                    },
+                    'ssh': {
+                        'host': '1.2.3.4',
+                        'port': 234
+                    }
+                },
+                {
+                    'rest_host': '1.2.3.4',
+                    'rest_port': 123,
+                    'ssh_host': '1.2.3.4',
+                    'ssh_port': 234
+                }
+            ],
+            [
+                {
+                    'model': 'fake_driver',
+                    'vendor': 'fake_storage',
+                    'rest': {
+                        'host': '1.2.3.4',
+                        'port': 123
+                    },
+                },
+                {
+                    'rest_host': '1.2.3.4',
+                    'rest_port': 123
+                }
+            ],
+            [
+                {
+                    'model': 'fake_driver',
+                    'vendor': 'fake_storage',
+                    'ssh': {
+                        'host': '1.2.3.4',
+                        'port': 234
+                    }
+                },
+                {
+                    'ssh_host': '1.2.3.4',
+                    'ssh_port': 234
+                }
+            ],
+        ]
+        ret = storages._get_host_port(test_case[0][INPUT])
+        self.assertDictEqual(ret, test_case[0][EXPETECT_RET])
+
+        ret = storages._get_host_port(test_case[1][INPUT])
+        self.assertDictEqual(ret, test_case[1][EXPETECT_RET])
+
+        ret = storages._get_host_port(test_case[2][INPUT])
+        self.assertDictEqual(ret, test_case[2][EXPETECT_RET])

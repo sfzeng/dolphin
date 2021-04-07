@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
-
 from oslo_config import cfg
 from oslo_log import log
 from oslo_utils import timeutils
@@ -83,6 +81,8 @@ class StorageController(wsgi.Controller):
         lock_name = 'storage-create-' + host
         lock = coordination.Lock(lock_name)
 
+        if self._storage_exist(ctxt, access_info_dict):
+            raise exception.StorageAlreadyExists()
         with lock:
             if self._storage_exist(ctxt, access_info_dict):
                 raise exception.StorageAlreadyExists()
@@ -163,19 +163,17 @@ class StorageController(wsgi.Controller):
                 subclass.__module__ + '.' + subclass.__name__)
 
     def _storage_exist(self, context, access_info):
-        access_info_dict = copy.deepcopy(access_info)
-
-        # Remove unrelated query fields
-        unrelated_fields = ['username', 'password']
-        for access in constants.ACCESS_TYPE:
-            if access_info_dict.get(access):
-                for key in unrelated_fields:
-                    access_info_dict[access].pop(key)
+        access_info_filter = {'vendor': access_info['vendor'],
+                              'model': access_info['model']}
 
         # Check if storage is registered
         access_info_list = db.access_info_get_all(context,
-                                                  filters=access_info_dict)
+                                                  filters=access_info_filter)
+
         for _access_info in access_info_list:
+            # Check whether access_info_feature matches the exist _access_info
+            if not _is_same_access_info(access_info, dict(_access_info)):
+                continue
             try:
                 storage = db.storage_get(context, _access_info['storage_id'])
                 if storage:
@@ -189,6 +187,7 @@ class StorageController(wsgi.Controller):
                 # ensure the database has no residual data.
                 LOG.debug("Remove residual access information.")
                 db.access_info_delete(context, _access_info['storage_id'])
+                return False
 
         return False
 
@@ -219,3 +218,20 @@ def _set_synced_if_ok(context, storage_id, resource_count):
         storage['sync_status'] = resource_count * constants.ResourceSync.START
         storage['updated_at'] = current_time
         db.storage_update(context, storage['id'], storage)
+
+
+def _is_same_access_info(access_info_a, access_info_b):
+    host_port_a = _get_host_port(access_info_a)
+    host_port_b = _get_host_port(access_info_b)
+    return host_port_a == host_port_b
+
+
+def _get_host_port(access_info):
+    host_port = dict()
+    if access_info.get('rest'):
+        host_port['rest_host'] = access_info['rest']['host']
+        host_port['rest_port'] = access_info['rest']['port']
+    if access_info.get('ssh'):
+        host_port['ssh_host'] = access_info['ssh']['host']
+        host_port['ssh_port'] = access_info['ssh']['port']
+    return host_port

@@ -155,7 +155,7 @@ def fake_access_info_get_all(context, marker=None, limit=None, sort_keys=None,
             'vendor': 'fake_storage',
             'rest': {
                 'host': '10.0.0.76',
-                'port': '1234',
+                'port': 1234,
                 'username': 'admin',
                 'password': b'YWJjZA=='
             },
