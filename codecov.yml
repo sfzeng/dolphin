@@ -7,4 +7,8 @@ coverage:
   round: down
   status:
     patch: false
+    project:
+      default:
+        target: auto
+        threshold: 5%
 
