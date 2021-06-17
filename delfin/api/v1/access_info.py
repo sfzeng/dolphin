@@ -48,6 +48,20 @@ class AccessInfoController(wsgi.Controller):
         access_info = self.driver_api.update_access_info(ctxt, access_info)
         return self._view_builder.show(access_info)
 
+    @validation.schema(schema_access_info.update)
+    def update_cm(self, req, id, body):
+        """Update cm access information."""
+        ctxt = req.environ.get('delfin.context')
+        access_info = db.access_info_get(ctxt, id)
+        for access in constants.ACCESS_TYPE:
+            if access_info.get(access):
+                access_info[access]['password'] = cryptor.decode(
+                    access_info[access]['password'])
+            if body.get(access):
+                access_info[access].update(body[access])
+        access_info = self.driver_api.update_cm_access_info(ctxt, access_info)
+        return self._view_builder.show(access_info)
+
 
 def create_resource():
     return wsgi.Resource(AccessInfoController())

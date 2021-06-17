@@ -121,6 +121,10 @@ class StorageSerialNumberMismatch(Invalid):
     msg_fmt = _("Storage serial number mismatch. {0}")
 
 
+class CentralizedManagerSerialNumberMismatch(Invalid):
+    msg_fmt = _("Storage serial number mismatch. {0}")
+
+
 class StorageAlreadyExists(Invalid):
     msg_fmt = _("Storage already exists.")
 
@@ -156,6 +160,14 @@ class SNMPConnectionFailed(BadRequest):
 
 class StorageNotFound(NotFound):
     msg_fmt = _("Storage {0} could not be found.")
+
+
+class CentralizedManagerNotFound(NotFound):
+    msg_fmt = _("CentralizedManager {0} could not be found.")
+
+
+class CentralizedManagerAlreadyExists(Invalid):
+    msg_fmt = _("Centralized Manager already exists.")
 
 
 class StorageBackendNotFound(NotFound):

@@ -608,3 +608,41 @@ class StorageShareTask(StorageResourceTask):
         LOG.info('Remove shares for storage id:{0}'
                  .format(self.storage_id))
         db.share_delete_by_storage(self.context, self.storage_id)
+
+
+class CentralizedManagerTask(object):
+    def __init__(self, context, cm_id):
+        self.cm_id = cm_id
+        self.context = context
+        self.driver_api = driverapi.API()
+
+    @check_deleted()
+    @set_synced_after()
+    def sync(self):
+        """
+        :return:
+        """
+        LOG.info('Syncing centralized manager for cm id:{0}'.format(
+            self.cm_id))
+        try:
+            cm = self.driver_api.\
+                get_centralized_manager(self.context, self.cm_id)
+
+            db.centralized_manager_update(self.context, self.cm_id, cm)
+        except Exception as e:
+            msg = _('Failed to update cm entry in DB: {0}'
+                    .format(e))
+            LOG.error(msg)
+            raise
+        else:
+            LOG.info("Syncing centralized managers successful!!!")
+
+    def remove(self):
+        LOG.info('Remove centralized manager for cm id:{0}'
+                 .format(self.cm_id))
+        try:
+            db.centralized_manager_delete(self.context, self.cm_id)
+            db.access_info_delete(self.context, self.cm_id)
+        except Exception as e:
+            LOG.error('Failed to update centralized manager entry in DB: {0}'
+                      .format(e))

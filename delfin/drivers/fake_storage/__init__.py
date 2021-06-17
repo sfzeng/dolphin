@@ -135,6 +135,22 @@ class FakeStorageDriver(driver.StorageDriver):
             'subscribed_capacity': subscribed
         }
 
+    def get_centralized_manager(self, context):
+        storages = self.get_storages(context)
+        return {
+            "serial_number": '123456',
+            "vendor": "fake_driver",
+            "model": "fake_model",
+            "storages": storages
+        }
+
+    def get_storages(self, context):
+        # Do something here
+        storage_list = []
+        for idx in range(random.randint(1, 5)):
+            storage_list.append(self.get_storage(context))
+        return storage_list
+
     @wait_random(MIN_WAIT, MAX_WAIT)
     def list_storage_pools(self, ctx):
         rd_pools_count = random.randint(MIN_POOL, MAX_POOL)

@@ -17,6 +17,7 @@ from delfin.api import extensions
 from delfin.api.v1 import access_info
 from delfin.api.v1 import alert_source
 from delfin.api.v1 import alerts
+from delfin.api.v1 import centralized_managers
 from delfin.api.v1 import controllers
 from delfin.api.v1 import disks
 from delfin.api.v1 import filesystems
@@ -51,6 +52,17 @@ class APIRouter(common.APIRouter):
                        action="get_capabilities",
                        conditions={"method": ["GET"]})
 
+        self.resources['centralized_managers'] =\
+            centralized_managers.create_resource()
+        mapper.resource("centralized_manager", "centralized_managers",
+                        controller=self.resources['centralized_managers'],
+                        member={'sync': 'POST'})
+
+        mapper.connect("centralized_managers", "/centralized_managers/sync",
+                       controller=self.resources['centralized_managers'],
+                       action="sync_all",
+                       conditions={"method": ["POST"]})
+
         self.resources['access_info'] = access_info.create_resource()
         mapper.connect("storages", "/storages/{id}/access-info",
                        controller=self.resources['access_info'],
@@ -60,6 +72,18 @@ class APIRouter(common.APIRouter):
         mapper.connect("storages", "/storages/{id}/access-info",
                        controller=self.resources['access_info'],
                        action="update",
+                       conditions={"method": ["PUT"]})
+
+        mapper.connect("centralized_managers",
+                       "/centralized_managers/{id}/access-info",
+                       controller=self.resources['access_info'],
+                       action="show",
+                       conditions={"method": ["GET"]})
+
+        mapper.connect("centralized_managers",
+                       "/centralized_managers/{id}/access-info",
+                       controller=self.resources['access_info'],
+                       action="update_cm",
                        conditions={"method": ["PUT"]})
 
         self.resources['alert_sources'] = alert_source.create_resource()

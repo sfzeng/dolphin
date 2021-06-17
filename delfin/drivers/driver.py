@@ -38,6 +38,10 @@ class StorageDriver(object):
         """Get storage device information from storage system"""
         pass
 
+    def get_centralized_manager(self, context):
+        """Get storage device information from storage system"""
+        pass
+
     @abc.abstractmethod
     def list_storage_pools(self, context):
         """List all storage pools from storage system."""

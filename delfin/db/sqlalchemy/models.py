@@ -22,7 +22,7 @@ SQLAlchemy models for Delfin  data.
 
 from oslo_config import cfg
 from oslo_db.sqlalchemy import models
-from oslo_db.sqlalchemy.types import JsonEncodedDict
+from oslo_db.sqlalchemy.types import JsonEncodedDict, JsonEncodedList
 from sqlalchemy import Column, Integer, String, Boolean, BigInteger, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -78,6 +78,19 @@ class Storage(BASE, DelfinBase):
     free_capacity = Column(BigInteger)
     raw_capacity = Column(BigInteger)
     subscribed_capacity = Column(BigInteger)
+    deleted_at = Column(DateTime)
+    deleted = Column(Boolean, default=False)
+
+
+class CentralizedManager(BASE, DelfinBase):
+    """Represents a storage object."""
+
+    __tablename__ = 'centralized_managers'
+    id = Column(String(36), primary_key=True)
+    vendor = Column(String(255))
+    model = Column(String(255))
+    serial_number = Column(String(255))
+    storages = Column(JsonEncodedList)
     deleted_at = Column(DateTime)
     deleted = Column(Boolean, default=False)
 

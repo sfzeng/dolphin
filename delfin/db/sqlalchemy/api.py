@@ -316,6 +316,96 @@ def storage_delete(context, storage_id):
     _storage_get_query(context).filter_by(id=storage_id).update(delete_info)
 
 
+def centralized_manager_create(context, values):
+    """Add a centralized_manager device from the values dictionary."""
+    if not values.get('id'):
+        values['id'] = uuidutils.generate_uuid()
+
+    centralized_manager_ref = models.CentralizedManager()
+    centralized_manager_ref.update(values)
+
+    session = get_session()
+    with session.begin():
+        session.add(centralized_manager_ref)
+
+    return _centralized_manager_get(context,
+                                    centralized_manager_ref['id'],
+                                    session=session)
+
+
+def centralized_manager_update(context, centralized_manager_id, values):
+    """Update a centralized_manager device with the values dictionary."""
+    session = get_session()
+    with session.begin():
+        query = _centralized_manager_get_query(context, session)
+        result = query.filter_by(
+            id=centralized_manager_id).update(values)
+    return result
+
+
+def centralized_manager_get(context, centralized_manager_id):
+    """Retrieve a centralized_manager device."""
+    return _centralized_manager_get(context, centralized_manager_id)
+
+
+def _centralized_manager_get(context, centralized_manager_id, session=None):
+    result = (_centralized_manager_get_query(context, session=session)
+              .filter_by(id=centralized_manager_id)
+              .first())
+
+    if not result:
+        raise exception.CentralizedManagerNotFound(centralized_manager_id)
+
+    return result
+
+
+def _centralized_manager_get_query(context, session=None):
+    read_deleted = context.read_deleted
+    kwargs = dict()
+
+    if read_deleted in ('no', 'n', False):
+        kwargs['deleted'] = False
+    elif read_deleted in ('yes', 'y', True):
+        kwargs['deleted'] = True
+
+    return model_query(context, models.CentralizedManager,
+                       session=session, **kwargs)
+
+
+def centralized_manager_get_all(context, marker=None,
+                                limit=None, sort_keys=None,
+                                sort_dirs=None, filters=None, offset=None):
+    session = get_session()
+    with session.begin():
+        # Generate the query
+        query = _generate_paginate_query(context, session,
+                                         models.CentralizedManager,
+                                         marker, limit, sort_keys, sort_dirs,
+                                         filters, offset,
+                                         )
+        # No centralized_managers   match, return empty list
+        if query is None:
+            return []
+        return query.all()
+
+
+@apply_like_filters(model=models.CentralizedManager)
+def _process_centralized_manager_info_filters(query, filters):
+    """Common filter processing for CentralizedManagers queries."""
+    if filters:
+        if not is_valid_model_filters(models.CentralizedManager, filters):
+            return
+        query = query.filter_by(**filters)
+    return query
+
+
+def centralized_manager_delete(context, centralized_manager_id):
+    """Delete a centralized_manager device."""
+    delete_info = {'deleted': True, 'deleted_at': timeutils.utcnow()}
+    _centralized_manager_get_query(context).filter_by(
+        id=centralized_manager_id).update(delete_info)
+
+
 def _volume_get_query(context, session=None):
     return model_query(context, models.Volume, session=session)
 
@@ -1859,6 +1949,9 @@ PAGINATION_HELPERS = {
                          _storage_pool_get),
     models.Storage: (_storage_get_query, _process_storage_info_filters,
                      _storage_get),
+    models.CentralizedManager: (_centralized_manager_get_query,
+                                _process_centralized_manager_info_filters,
+                                _centralized_manager_get),
     models.AlertSource: (_alert_source_get_query,
                          _process_alert_source_filters,
                          _alert_source_get),

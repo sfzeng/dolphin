@@ -108,6 +108,54 @@ def storage_delete(context, storage_id):
     return IMPL.storage_delete(context, storage_id)
 
 
+def centralized_manager_get(context, centralized_manager_id):
+    """Retrieve a centralized_manager device."""
+    return IMPL.centralized_manager_get(context, centralized_manager_id)
+
+
+def centralized_manager_get_all(context, marker=None,
+                                limit=None, sort_keys=None,
+                                sort_dirs=None, filters=None, offset=None):
+    """Retrieves all centralized_manager devices.
+
+    If no sort parameters are specified then the returned volumes are sorted
+    first by the 'created_at' key and then by the 'id' key in descending
+    order.
+
+    :param context: context of this request, it's helpful to trace the request
+    :param marker: the last item of the previous page, used to determine the
+                   next page of results to return
+    :param limit: maximum number of items to return
+    :param sort_keys: list of attributes by which results should be sorted,
+                      paired with corresponding item in sort_dirs
+    :param sort_dirs: list of directions in which results should be sorted,
+                      paired with corresponding item in sort_keys, for example
+                      'desc' for descending order
+    :param filters: dictionary of filters
+    :param offset: number of items to skip
+    :returns: list of centralized_manager
+    """
+    return IMPL.centralized_manager_get_all(context, marker, limit,
+                                            sort_keys, sort_dirs,
+                                            filters, offset)
+
+
+def centralized_manager_create(context, values):
+    """Add a centralized_manager device from the values dictionary."""
+    return IMPL.centralized_manager_create(context, values)
+
+
+def centralized_manager_update(context, centralized_manager_id, values):
+    """Update a centralized_manager device with the values dictionary."""
+    return IMPL.centralized_manager_update(context,
+                                           centralized_manager_id, values)
+
+
+def centralized_manager_delete(context, centralized_manager_id):
+    """Delete a centralized_manager device."""
+    return IMPL.centralized_manager_delete(context, centralized_manager_id)
+
+
 def volume_create(context, values):
     """Create a volume from the values dictionary."""
     return IMPL.volume_create(context, values)

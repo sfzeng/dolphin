@@ -49,6 +49,33 @@ class API(object):
         LOG.info("Storage found successfully.")
         return storage
 
+    def discover_centralized_manager(self, context, access_info):
+        """Discover a centralized_manager system with access information."""
+        helper.encrypt_password(context, access_info)
+        if 'storage_id' not in access_info:
+            access_info['storage_id'] = six.text_type(
+                uuidutils.generate_uuid())
+        driver = self.driver_manager.get_driver(context,
+                                                cache_on_load=False,
+                                                **access_info)
+        cm = driver.get_centralized_manager(context)
+        # Need to validate centralized_manager response from driver
+        helper.check_cm_repetition(context, cm)
+        db.access_info_create(context, access_info)
+        cm['id'] = access_info['storage_id']
+
+        for storage in cm['storages']:
+            helper.check_storage_repetition(context, storage)
+            storage['id'] = six.text_type(
+                uuidutils.generate_uuid())
+            access_info['storage_id'] = storage['id']
+            db.access_info_create(context, access_info)
+            db.storage_create(context, storage)
+
+        cm = db.centralized_manager_create(context, cm)
+        LOG.info("Storages from Centralized Mgr found successfully.")
+        return cm
+
     def update_access_info(self, context, access_info):
         """Validate and update access information."""
         helper.encrypt_password(context, access_info)
@@ -66,6 +93,23 @@ class API(object):
         LOG.info("Access information updated successfully.")
         return access_info
 
+    def update_cm_access_info(self, context, access_info):
+        """Validate and update access information."""
+        helper.encrypt_password(context, access_info)
+        driver = self.driver_manager.get_driver(context,
+                                                cache_on_load=False,
+                                                **access_info)
+        cm_new = driver.get_centralized_manager(context)
+
+        # Need to validate storage response from driver
+        storage_id = access_info['storage_id']
+        helper.check_cm_consistency(context, storage_id, cm_new)
+        access_info = db.access_info_update(context, storage_id, access_info)
+        db.centralized_manager_update(context, storage_id, cm_new)
+
+        LOG.info("Access information updated successfully.")
+        return access_info
+
     def remove_storage(self, context, storage_id):
         """Clear driver instance from driver factory."""
         self.driver_manager.remove_driver(storage_id)
@@ -74,6 +118,11 @@ class API(object):
         """Get storage device information from storage system"""
         driver = self.driver_manager.get_driver(context, storage_id=storage_id)
         return driver.get_storage(context)
+
+    def get_centralized_manager(self, context, cm_id):
+        """Get storage device information from storage system"""
+        driver = self.driver_manager.get_driver(context, storage_id=cm_id)
+        return driver.get_centralized_manager(context)
 
     def list_storage_pools(self, context, storage_id):
         """List all storage pools from storage system."""

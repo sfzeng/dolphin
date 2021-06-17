@@ -118,8 +118,8 @@ class StorageController(wsgi.Controller):
             capabilities = self.driver_api.get_capabilities(
                 context=ctxt, storage_id=storage['id'])
             validation.validate_capabilities(capabilities)
-            _create_performance_monitoring_task(ctxt, storage['id'],
-                                                capabilities)
+            create_performance_monitoring_task(ctxt, storage['id'],
+                                               capabilities)
         except exception.EmptyResourceMetrics:
             msg = _("Resource metric provided by capabilities is empty for "
                     "storage: %s") % storage['id']
@@ -168,7 +168,7 @@ class StorageController(wsgi.Controller):
 
         for storage in storages:
             try:
-                _set_synced_if_ok(ctxt, storage['id'], resource_count)
+                set_synced_if_ok(ctxt, storage['id'], resource_count)
             except exception.InvalidInput as e:
                 LOG.warn('Can not start new sync task for %s, reason is %s'
                          % (storage['id'], e.msg))
@@ -191,7 +191,7 @@ class StorageController(wsgi.Controller):
         ctxt = req.environ['delfin.context']
         storage = db.storage_get(ctxt, id)
         resource_count = len(resources.StorageResourceTask.__subclasses__())
-        _set_synced_if_ok(ctxt, storage['id'], resource_count)
+        set_synced_if_ok(ctxt, storage['id'], resource_count)
         for subclass in resources.StorageResourceTask.__subclasses__():
             self.task_rpcapi.sync_storage_resource(
                 ctxt,
@@ -253,7 +253,7 @@ def create_resource():
 
 
 @coordination.synchronized('{storage_id}')
-def _set_synced_if_ok(context, storage_id, resource_count):
+def set_synced_if_ok(context, storage_id, resource_count):
     try:
         storage = db.storage_get(context, storage_id)
     except exception.StorageNotFound:
@@ -276,7 +276,7 @@ def _set_synced_if_ok(context, storage_id, resource_count):
         db.storage_update(context, storage['id'], storage)
 
 
-def _create_performance_monitoring_task(context, storage_id, capabilities):
+def create_performance_monitoring_task(context, storage_id, capabilities):
     # Check resource_metric attribute availability and
     # check if resource_metric is empty
     if 'resource_metrics' not in capabilities \

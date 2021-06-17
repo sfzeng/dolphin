@@ -47,6 +47,23 @@ def check_storage_repetition(context, storage):
         raise exception.StorageAlreadyExists()
 
 
+def check_cm_repetition(context, cm):
+    if not cm:
+        raise exception.CentralizedManagerNotFound()
+
+    if not cm.get('serial_number'):
+        msg = _("serial_number should be provided by CM.")
+        raise exception.InvalidResults(msg)
+
+    filters = dict(serial_number=cm['serial_number'])
+    cm_list = db.centralized_manager_get_all(context, filters=filters)
+    if cm_list:
+        msg = (_("Failed to register CM. Reason: same serial_number: "
+                 "%s detected.") % cm['serial_number'])
+        LOG.error(msg)
+        raise exception.CentralizedManagerAlreadyExists()
+
+
 def check_storage_consistency(context, storage_id, storage_new):
     """Check storage response returned by driver whether it matches the
     storage stored in database.
@@ -72,3 +89,30 @@ def check_storage_consistency(context, storage_id, storage_new):
                (storage_new['serial_number'],
                 storage_present['serial_number']))
         raise exception.StorageSerialNumberMismatch(msg)
+
+
+def check_cm_consistency(context, cm_id, cm_new):
+    """Check storage response returned by driver whether it matches the
+    storage stored in database.
+
+    :param context: The context of delfin.
+    :type context: delfin.context.RequestContext
+    :param cm_id: The uuid of storage in database.
+    :type cm_id: string
+    :param cm_new: The storage response returned by driver.
+    :type cm_new: dict
+    """
+    if not cm_new:
+        raise exception.CentralizedManagerNotFound()
+
+    if not cm_new.get('serial_number'):
+        msg = _("Serial number should be provided by cm.")
+        raise exception.InvalidResults(msg)
+
+    cm_present = db.centralized_manager_get(context, cm_id)
+    if cm_new['serial_number'] != cm_present['serial_number']:
+        msg = (_("Serial number %s does not match "
+                 "the existing storage serial number %s.") %
+               (cm_new['serial_number'],
+                cm_present['serial_number']))
+        raise exception.CentralizedManagerSerialNumberMismatch(msg)
