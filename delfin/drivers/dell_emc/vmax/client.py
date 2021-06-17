@@ -287,6 +287,97 @@ class VMAXClient(object):
             LOG.error(msg)
             raise exception.StorageBackendException(msg)
 
+    def list_controllers(self, storage_id):
+        try:
+            # Get list of Directors
+            directors = self.rest.get_director_list(self.array_id,
+                                                    self.uni_version)
+            controller_list = []
+            for director in directors:
+                director_info = self.rest.get_director(
+                    self.array_id, self.uni_version, director)
+
+                status = constants.ControllerStatus.NORMAL
+                if director_info['availability'] != 'Online':
+                    status = constants.ControllerStatus.OFFLINE
+
+                controller = {
+                    'name': 'director_'
+                            + str(director_info['director_number']),
+                    'storage_id': storage_id,
+                    'native_controller_id': director_info['directorId'],
+                    'status': status,
+                    'location': 'slot_'
+                                + str(director_info['director_slot_number']),
+                    'soft_version': None,
+                    'cpu_info': 'number_of_cores_'
+                                + str(director_info['num_of_cores']),
+                    'memory_size': None
+
+                }
+                controller_list.append(controller)
+            return controller_list
+
+        except exception.SSLCertificateFailed:
+            LOG.error('SSL certificate failed when list pools for VMax')
+            raise
+        except Exception as err:
+            msg = "Failed to get controller metrics from VMAX: {}".format(err)
+            LOG.error(msg)
+            raise exception.ControllerNotFound(self.array_id)
+
+    def list_ports(self, storage_id):
+        try:
+            # Get list of Directors
+            directors = self.rest.get_director_list(self.array_id,
+                                                    self.uni_version)
+            port_list = []
+            for director in directors:
+                port_keys = self.rest.get_port_list(
+                    self.array_id, self.uni_version, director)
+                for port_key in port_keys:
+                    port_info = self.rest.get_port(
+                        self.array_id, self.uni_version,
+                        director, port_key['portId'])['symmetrixPort']
+
+                    status = constants.PortHealthStatus.NORMAL
+                    if port_info['port_status'] == 'PendOn':
+                        status = constants.PortHealthStatus.ABNORMAL
+
+                    port_type = constants.PortType.FC
+                    if port_info['type'] != 'FibreChannel (563)':
+                        port_type = constants.PortType.ETH
+
+                    port_dict = {
+                        'name': port_key['directorId'] + ':' + port_key['portId'],
+                        'storage_id': storage_id,
+                        'native_port_id': port_key['portId'],
+                        'location': 'director_' + port_key['directorId'],
+                        'connection_status': status,
+                        'health_status': None,
+                        'type': port_type,
+                        'logical_type': None,
+                        'speed': port_info.get('negotiated_speed'),
+                        'max_speed': port_info.get('max_speed'),
+                        'native_parent_id': port_key['directorId'],
+                        'wwn': port_info.get('identifier', None),
+                        'mac_address': None,
+                        'ipv4': port_info.get('ipv4_address'),
+                        'ipv4_mask': port_info.get('ipv4_netmask'),
+                        'ipv6': port_info.get('ipv6_address'),
+                        'ipv6_mask': None,
+                    }
+                    port_list.append(port_dict)
+            return port_list
+
+        except exception.SSLCertificateFailed:
+            LOG.error('SSL certificate failed when list pools for VMax')
+            raise
+        except Exception as err:
+            msg = "Failed to get port metrics from VMAX: {}".format(err)
+            LOG.error(msg)
+            raise exception.PortNotFound(self.array_id)
+
     def list_alerts(self, query_para):
         """Get all alerts from an array."""
         return self.rest.get_alerts(query_para, version=self.uni_version,
