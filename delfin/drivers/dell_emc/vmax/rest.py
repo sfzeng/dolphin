@@ -562,6 +562,24 @@ class VMaxRest(object):
             raise exception.StoragePerformanceCollectionFailed(message)
         return message
 
+    def get_pool_performance_metrics(self, pool_id, array, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+
+        target_uri = constants.VMAX_REST_TARGET_URI_ARRAY_PERF
+        payload = perf_utils.generate_performance_payload(
+            array, start_time, end_time, constants.ARRAY_METRICS)
+        payload['srpId'] = pool_id
+        status_code, message = self.post_request(target_uri, payload)
+        # Expected 200 when POST request has metrics in response body
+        if status_code != STATUS_200:
+            raise exception.StoragePoolPerformanceCollectionFailed(message)
+        return message
+
     def list_pagination(self, list_info):
         """Process lists under or over the maxPageSize
         :param list_info: the object list information

@@ -324,3 +324,75 @@ class VMAXClient(object):
                 err)
             LOG.error(msg)
             raise exception.StorageBackendException(msg)
+
+    def get_single_pool_performance_metrics(
+            self, pool_id, storage_id, start_time, end_time):
+        """Get performance metrics."""
+        try:
+            # Fetch VMAX Array Performance data from REST client
+            # TODO  :
+            #  Check whether array is registered for performance collection
+            #  in unisphere
+            perf_data = self.rest.get_pool_performance_metrics(
+                pool_id, self.array_id, start_time, end_time)
+            # parse VMAX REST response to metric->values map
+            metrics_value_map = perf_utils.parse_performance_data(perf_data)
+            # prepare  labels required for array_leval performance data
+            labels = {'storage_id': storage_id, 'resource_type': 'array'}
+            # map to unified delifn  metrics
+            delfin_metrics = perf_utils. \
+                map_array_perf_metrics_to_delfin_metrics(metrics_value_map)
+            metrics_array = []
+            for key in constants.DELFIN_ARRAY_METRICS:
+                m = constants.metric_struct(name=key, labels=labels,
+                                            values=delfin_metrics[key])
+                metrics_array.append(m)
+            return metrics_array
+        except Exception as err:
+            msg = "Failed to get performance metrics data for VMAX: {}".format(
+                err)
+            LOG.error(msg)
+            raise exception.StorageBackendException(msg)
+
+    def get_pool_performance_metrics(self, storage_id, start_time, end_time):
+        """Get performance metrics."""
+        pool_metrics = []
+        pools = self.rest.get_srp_by_name(
+            self.array_id, self.uni_version, srp='')['srpId']
+
+        for pool in pools:
+            pool_info = self.rest.get_srp_by_name(
+                self.array_id, self.uni_version, srp=pool)
+            metrics = self.get_single_pool_performance_metrics(
+                pool_info['srpId'], storage_id, start_time, end_time)
+            pool_metrics.extend(metrics)
+
+        return pool_metrics
+
+    def get_disk_performance_metrics(self, storage_id, start_time, end_time):
+        """Get performance metrics."""
+        try:
+            # Fetch VMAX Array Performance data from REST client
+            # TODO  :
+            #  Check whether array is registered for performance collection
+            #  in unisphere
+            perf_data = self.rest.get_disk_performance_metrics(
+                self.array_id, start_time, end_time)
+            # parse VMAX REST response to metric->values map
+            metrics_value_map = perf_utils.parse_performance_data(perf_data)
+            # prepare  labels required for array_leval performance data
+            labels = {'storage_id': storage_id, 'resource_type': 'array'}
+            # map to unified delifn  metrics
+            delfin_metrics = perf_utils. \
+                map_array_perf_metrics_to_delfin_metrics(metrics_value_map)
+            metrics_array = []
+            for key in constants.DELFIN_ARRAY_METRICS:
+                m = constants.metric_struct(name=key, labels=labels,
+                                            values=delfin_metrics[key])
+                metrics_array.append(m)
+            return metrics_array
+        except Exception as err:
+            msg = "Failed to get performance metrics data for VMAX: {}".format(
+                err)
+            LOG.error(msg)
+            raise exception.StorageBackendException(msg)
