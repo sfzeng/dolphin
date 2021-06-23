@@ -210,8 +210,16 @@ class ControllerNotFound(NotFound):
     msg_fmt = _("Controller {0} could not be found.")
 
 
+class ControllerListNotFound(NotFound):
+    msg_fmt = _("Controller List for {0} could not be found.")
+
+
 class PortNotFound(NotFound):
     msg_fmt = _("Port {0} could not be found.")
+
+
+class PortListNotFound(NotFound):
+    msg_fmt = _("Port List for {0} could not be found.")
 
 
 class DiskNotFound(NotFound):
