@@ -65,6 +65,27 @@ def parse_performance_data(response):
     return metrics_map
 
 
+def construct_metrics(metrics_map, storage_id, perf):
+    metrics_list = []
+    for key in constants.VMAX_METRICS:
+        delfin_metrics = metrics_map.get(key)
+        if not delfin_metrics:
+            continue
+        labels = {
+            'storage_id': storage_id,
+            'resource_type': 'controller',
+            'resource_id': perf.get('resource_id'),
+            'resource_name': perf.get('resource_name'),
+            'type': 'RAW',
+            'unit': constants.CONTROLLER_CAP[key]['unit']
+        }
+        delfin_metrics = metrics_map[key]
+        metrics = constants.metric_struct(name=key, labels=labels,
+                                          values=delfin_metrics)
+        metrics_list.append(metrics)
+    return metrics_list
+
+
 def map_array_perf_metrics_to_delfin_metrics(metrics_value_map):
     """map vmax array performance metrics values  to delfin metrics values
         :param metrics_value_map: metric to values map of vmax metrics

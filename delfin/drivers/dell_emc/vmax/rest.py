@@ -33,6 +33,10 @@ from delfin.i18n import _
 
 LOG = logging.getLogger(__name__)
 SLOPROVISIONING = 'sloprovisioning'
+SYSTEM = 'system'
+SYMMETRIX = 'symmetrix'
+DIRECTOR = 'director'
+PORT = 'port'
 U4V_VERSION = '92'
 UCODE_5978 = '5978'
 # HTTP constants
@@ -371,6 +375,33 @@ class VMaxRest(object):
             private=private, version=version)
         return self.get_request(target_uri, resource_type, params)
 
+    def get_resource_kwargs(self, *args, **kwargs):
+        """Get resource details from the array.
+
+        :key version: Unisphere version -- int
+        :key no_version: if versionless uri -- bool
+        :key category: the resource category e.g. sloprovisioning
+        :key resource_level: resource level e.g. storagegroup
+        :key resource_level_id: resource level id
+        :key resource_type: optional resource type e.g. maskingview
+        :key resource_type_id: optional resource type id
+        :key resource: the name of a specific resource
+        :key resource_id: the name of a specific resource
+        :key object_type: optional name of resource
+        :key object_type_id: optional name of resource
+        :key params: query parameters  -- dict
+        :key private: empty string or '/private' if private url
+        :returns: resource object -- dict or None
+        """
+        resource_type = None
+        if args:
+            resource_type = args[2]
+        elif not args and kwargs:
+            resource_type = kwargs.get('resource_level')
+        target_uri = self.build_uri(*args, **kwargs)
+        return self.get_request(
+            target_uri, resource_type, kwargs.get('params'))
+
     def get_array_detail(self, version=U4V_VERSION, array=''):
         """Get an array from its serial number.
         :param array: the array serial number
@@ -437,10 +468,10 @@ class VMaxRest(object):
         :returns: the VMax model
         """
         system_info = self.get_array_detail(version, array)
-        vmax_version = system_info.get('model')
+        vmax_model = system_info.get('model', 'VMAX')
         vmax_ucode = system_info.get('ucode')
-        vmax_display_name = system_info.get('display_name')
-        array_details = {"model": vmax_version,
+        vmax_display_name = system_info.get('display_name', vmax_model)
+        array_details = {"model": vmax_model,
                          "ucode": vmax_ucode,
                          "display_name": vmax_display_name}
         return array_details
@@ -530,6 +561,142 @@ class VMaxRest(object):
             pass
         return device_ids
 
+    def get_director(self, array, version, device_id):
+        """Get a VMAX director from array.
+        :param array: the array serial number
+        :param version: the unisphere version
+        :param device_id: the volume device id
+        :returns: volume dict
+        :raises: ControllerNotFound
+        """
+        director_dict = None
+        # Unisphere versions 90 and above
+        if int(version) > 84:
+            director_dict = self.get_resource(
+                array, SYSTEM, 'director', resource_name=device_id,
+                version=version)
+
+        # Unisphere versions 84
+        if int(version) == 84:
+            director_dict = self.get_resource(
+                array, SLOPROVISIONING, 'director', resource_name=device_id,
+                version=version)
+
+        if int(version) < 84:
+            raise NotImplementedError
+
+        if not director_dict:
+            exception_message = (_("Director %(deviceID)s not found.")
+                                 % {'deviceID': device_id})
+            LOG.error(exception_message)
+            raise exception.ControllerNotFound(device_id)
+        return director_dict
+
+    def get_director_list(self, array, version, params=None):
+        """Get a filtered list of VMAX controllers from array.
+        :param array: the array serial number
+        :param version: the unisphere version
+        :param params: filter parameters
+        :returns: directors -- list
+        """
+        response = None
+        # Unisphere versions 90 and above
+        if int(version) > 84:
+            response = self.get_resource(
+                array, SYSTEM, 'director',
+                version=version, params=params)
+
+        # Unisphere versions 84
+        if int(version) == 84:
+            response = self.get_resource(
+                array, SLOPROVISIONING, 'director',
+                version=version, params=params)
+
+        if int(version) < 84:
+            raise NotImplementedError
+
+        if not response:
+            exception_message = (_("Get Director list failed.")
+                                 % {'deviceID': array})
+            LOG.error(exception_message)
+            raise exception.ControllerListNotFound(array)
+
+        return response.get('directorId', list()) if response else list()
+
+    def get_port(self, array, version, director_id, port_id):
+        """Get a VMAX director from array.
+        :param array: the array serial number
+        :param version: the unisphere version  -- int
+        :param director_id: the director id
+        :param port_id: the port id
+        :returns: volume dict
+        :raises: ControllerNotFound
+        """
+        port_dict = None
+        # Unisphere versions 90 and above
+        if int(version) > 84:
+            port_dict = self.get_resource_kwargs(
+                category=SYSTEM, version=version,
+                resource_level=SYMMETRIX, resource_level_id=array,
+                resource_type=DIRECTOR, resource_type_id=director_id,
+                resource=PORT, resource_id=port_id)
+
+        # Unisphere versions 90 and above
+        if int(version) == 84:
+            port_dict = self.get_resource_kwargs(
+                category=SLOPROVISIONING, version=version,
+                resource_level=SYMMETRIX, resource_level_id=array,
+                resource_type=DIRECTOR, resource_type_id=director_id,
+                resource=PORT, resource_id=port_id)
+
+        if int(version) < 84:
+            raise NotImplementedError
+
+        if not port_dict:
+            exception_message = (_("Port %(deviceID)s not found.")
+                                 % {'deviceID': port_id})
+            LOG.error(exception_message)
+            raise exception.PortNotFound(port_id)
+        return port_dict
+
+    def get_port_list(self, array, version, director_id, params=None):
+        """Get a filtered list of VMAX controllers from array.
+        :param array: the array serial number
+        :param version: the unisphere version  -- int
+        :param params: filter parameters
+        :param director_id: director id
+        :returns: device_ids -- list
+        """
+        response = None
+        # Unisphere versions 90 and above
+        if int(version) > 84:
+            response = self.get_resource_kwargs(
+                category=SYSTEM, version=version,
+                resource_level=SYMMETRIX, resource_level_id=array,
+                resource_type=DIRECTOR, resource_type_id=director_id,
+                resource=PORT, params=params)
+
+        # Unisphere versions 84
+        if int(version) == 84:
+            response = self.get_resource_kwargs(
+                category=SLOPROVISIONING, version=version,
+                resource_level=SYMMETRIX, resource_level_id=array,
+                resource_type=DIRECTOR, resource_type_id=director_id,
+                resource=PORT, params=params)
+
+        if int(version) < 84:
+            raise NotImplementedError
+
+        if not response:
+            exception_message = (_("Get Port list failed.")
+                                 % {'deviceID': array})
+            LOG.error(exception_message)
+            raise exception.PortListNotFound(array)
+
+        port_ids = response.get('symmetrixPortKey',
+                                list()) if response else list()
+        return port_ids
+
     def post_request(self, target_uri, payload):
         """Generate  a POST request.
         :param target_uri: the uri to query from unipshere REST API
@@ -544,7 +711,386 @@ class VMaxRest(object):
             operation, status_code, message)
         return status_code, message
 
-    def get_array_performance_metrics(self, array, start_time, end_time):
+    def get_resource_keys(self, array, resource, payload=None):
+        if payload is None:
+            payload = {}
+
+        payload['symmetrixId'] = str(array)
+        target_uri = '/performance/{0}/keys'.format(resource)
+
+        status_code, response = self.post_request(target_uri, payload)
+        if status_code != STATUS_200:
+            err_msg = "Failed to get {0} keys from VMAX: {1}"\
+                .format(resource, str(array))
+            LOG.error(err_msg)
+            return None
+        return response
+
+    def get_resource_metrics(self, array, start_time,
+                             end_time, resource, metrics,
+                             payload=None):
+        if payload is None:
+            payload = {}
+
+        payload['symmetrixId'] = str(array)
+        payload['startDate'] = start_time
+        payload['endDate'] = end_time
+        payload['metrics'] = metrics
+        payload['dataFormat'] = 'Average'
+        target_uri = '/performance/{0}/metrics'.format(resource)
+
+        status_code, response = self.post_request(target_uri, payload)
+        if status_code != STATUS_200:
+            err_msg = "Failed to get {0} metrics from VMAX: {1}" \
+                .format(resource, str(array))
+            LOG.error(err_msg)
+            return None
+        return response
+
+    def get_storage_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        storage_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.STORAGE_METRICS.get(k)
+            if vmax_key:
+                storage_metrics.append(vmax_key)
+
+        keys = self.get_resource_keys(array, 'Array')
+        keys_dict = None
+        if keys:
+            keys_dict = keys.get('arrayInfo', None)
+
+        metrics_list = []
+        for key_dict in keys_dict:
+            if key_dict.get('symmetrixId') == array:
+                metrics_res = self.get_resource_metrics(
+                    array, start_time, end_time, 'Array',
+                    storage_metrics, payload=None)
+                if metrics_res:
+                    metrics_list.append(metrics_res)
+
+        return metrics_list
+
+    def get_pool_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        pool_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.POOL_METRICS.get(k)
+            if vmax_key:
+                pool_metrics.append(vmax_key)
+
+        keys = self.get_resource_keys(array, 'SRP')
+        keys_dict = None
+        if keys:
+            keys_dict = keys.get('srpInfo', None)
+
+        metrics_list = []
+        for key_dict in keys_dict:
+            payload = {'srpId': key_dict.get('srpInfo')}
+            metrics_res = self.get_resource_metrics(
+                array, start_time, end_time, 'SRP',
+                pool_metrics, payload=payload)
+            if metrics_res:
+                metrics_list.append(metrics_res)
+
+        return metrics_list
+
+    def get_fedirector_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        fedirector_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.FEDIRECTOR_METRICS.get(k)
+            if vmax_key:
+                fedirector_metrics.append(vmax_key)
+
+        keys = self.get_resource_keys(array, 'FEDirector')
+        keys_dict = None
+        if keys:
+            keys_dict = keys.get('feDirectorInfo', None)
+
+        metrics_list = []
+        for key_dict in keys_dict:
+            payload = {'directorId': key_dict.get('directorId')}
+            metrics_res = self.get_resource_metrics(
+                array, start_time, end_time, 'FEDirector',
+                fedirector_metrics, payload=payload)
+            if metrics_res:
+                label = {
+                    'resource_id': key_dict.get('directorId'),
+                    'resource_name': 'FEDirector_' +
+                                     key_dict.get('directorId'),
+                    'metrics': metrics_res
+                }
+                metrics_list.append(label)
+
+        return metrics_list
+
+    def get_bedirector_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        bedirector_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.BEDIRECTOR_METRICS.get(k)
+            if vmax_key:
+                bedirector_metrics.append(vmax_key)
+
+        keys = self.get_resource_keys(array, 'BEDirector')
+        keys_dict = None
+        if keys:
+            keys_dict = keys.get('beDirectorInfo', None)
+
+        metrics_list = []
+        for key_dict in keys_dict:
+            payload = {'directorId': key_dict.get('directorId')}
+            metrics_res = self.get_resource_metrics(
+                array, start_time, end_time, 'BEDirector',
+                bedirector_metrics, payload=payload)
+            if metrics_res:
+                label = {
+                    'resource_id': key_dict.get('directorId'),
+                    'resource_name': 'BEDirector_' +
+                                     key_dict.get('directorId'),
+                    'metrics': metrics_res
+                }
+                metrics_list.append(label)
+
+        return metrics_list
+
+    def get_rdfdirector_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        rdfdirector_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.RDFDIRECTOR_METRICS.get(k)
+            if vmax_key:
+                rdfdirector_metrics.append(vmax_key)
+
+        keys = self.get_resource_keys(array, 'RDFDirector')
+        keys_dict = None
+        if keys:
+            keys_dict = keys.get('rdfDirectorInfo', None)
+
+        metrics_list = []
+        for key_dict in keys_dict:
+            payload = {'directorId': key_dict.get('directorId')}
+            metrics_res = self.get_resource_metrics(
+                array, start_time, end_time, 'RDFDirector',
+                rdfdirector_metrics, payload=payload)
+            if metrics_res:
+                label = {
+                    'resource_id': key_dict.get('directorId'),
+                    'resource_name': 'RDFDirector_' +
+                                     key_dict.get('directorId'),
+                    'metrics': metrics_res
+                }
+                metrics_list.append(label)
+
+        return metrics_list
+
+    def get_controller_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        metrics_list = []
+        be_metrics = self.get_bedirector_metrics(
+            array, start_time, end_time, metrics)
+        fe_metrics = self.get_fedirector_metrics(
+            array, start_time, end_time, metrics)
+        rdf_metrics = self.get_rdfdirector_metrics(
+            array, start_time, end_time, metrics)
+        metrics_list.extend(be_metrics)
+        metrics_list.extend(fe_metrics)
+        metrics_list.extend(rdf_metrics)
+
+        return metrics_list
+
+    def get_feport_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        feport_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.RDFDIRECTOR_METRICS.get(k)
+            if vmax_key:
+                feport_metrics.append(vmax_key)
+
+        director_keys = self.get_resource_keys(array, 'FEDirector')
+        director_keys_dict = None
+        if director_keys:
+            director_keys_dict = director_keys.get('feDirectorInfo', None)
+
+        metrics_list = []
+        for director_key_dict in director_keys_dict:
+            payload = {'directorId': director_key_dict.get('directorId')}
+            keys = self.get_resource_keys(array, 'FEPort', payload=payload)
+            keys_dict = None
+            if keys:
+                keys_dict = keys.get('fePortInfo', None)
+
+            for key_dict in keys_dict:
+                payload['portId'] = key_dict.get('portId')
+                metrics_res = self.get_resource_metrics(
+                    array, start_time, end_time, 'FEPort',
+                    feport_metrics, payload=payload)
+                if metrics_res:
+                    label = {
+                        'resource_id': key_dict.get('portId'),
+                        'resource_name': 'FEPort_' +
+                                         director_key_dict.get('directorId') +
+                                         '_' + key_dict.get('portId'),
+                        'metrics': metrics_res
+                    }
+                    metrics_list.append(label)
+
+        return metrics_list
+
+    def get_beport_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        beport_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.BEPORT_METRICS.get(k)
+            if vmax_key:
+                beport_metrics.append(vmax_key)
+
+        director_keys = self.get_resource_keys(array, 'BEDirector')
+        director_keys_dict = None
+        if director_keys:
+            director_keys_dict = director_keys.get('beDirectorInfo', None)
+
+        metrics_list = []
+        for director_key_dict in director_keys_dict:
+            payload = {'directorId': director_key_dict.get('directorId')}
+            keys = self.get_resource_keys(array, 'BEPort', payload=payload)
+            keys_dict = None
+            if keys:
+                keys_dict = keys.get('bePortInfo', None)
+
+            for key_dict in keys_dict:
+                payload['portId'] = key_dict.get('portId')
+                metrics_res = self.get_resource_metrics(
+                    array, start_time, end_time, 'BEPort',
+                    beport_metrics, payload=payload)
+                if metrics_res:
+                    label = {
+                        'resource_id': key_dict.get('portId'),
+                        'resource_name': 'BEPort_' +
+                                         director_key_dict.get('directorId') +
+                                         '_' + key_dict.get('portId'),
+                        'metrics': metrics_res
+                    }
+                    metrics_list.append(label)
+
+        return metrics_list
+
+    def get_rdfport_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+        rdfport_metrics = []
+        for k in metrics.keys():
+            vmax_key = constants.RDFPORT_METRICS.get(k)
+            if vmax_key:
+                rdfport_metrics.append(vmax_key)
+
+        director_keys = self.get_resource_keys(array, 'RDFDirector')
+        director_keys_dict = None
+        if director_keys:
+            director_keys_dict = director_keys.get('rdfDirectorInfo', None)
+
+        metrics_list = []
+        for director_key_dict in director_keys_dict:
+            payload = {'directorId': director_key_dict.get('directorId')}
+            keys = self.get_resource_keys(array, 'RDFPort', payload=payload)
+            keys_dict = None
+            if keys:
+                keys_dict = keys.get('rdfPortInfo', None)
+
+            for key_dict in keys_dict:
+                payload['portId'] = key_dict.get('portId')
+                metrics_res = self.get_resource_metrics(
+                    array, start_time, end_time, 'RDFPort',
+                    rdfport_metrics, payload=payload)
+                if metrics_res:
+                    label = {
+                        'resource_id': key_dict.get('portId'),
+                        'resource_name': 'BEPort_' +
+                                         director_key_dict.get('directorId') +
+                                         '_' + key_dict.get('portId'),
+                        'metrics': metrics_res
+                    }
+                    metrics_list.append(label)
+
+        return metrics_list
+
+    def get_port_metrics(self, array, metrics, start_time, end_time):
+        """Get a array performance metrics from VMAX unipshere REST API.
+        :param array: the array serial number
+        :param metrics: required metrics
+        :param start_time: start time for collection
+        :param end_time: end time for collection
+        :returns: message -- response from unipshere REST API
+         """
+
+        metrics_list = []
+        be_metrics = self.get_beport_metrics(
+            array, start_time, end_time, metrics)
+        fe_metrics = self.get_feport_metrics(
+            array, start_time, end_time, metrics)
+        rdf_metrics = self.get_rdfport_metrics(
+            array, start_time, end_time, metrics)
+        metrics_list.extend(be_metrics)
+        metrics_list.extend(fe_metrics)
+        metrics_list.extend(rdf_metrics)
+
+        return metrics_list
+
+    def get_array_metrics(self, array, start_time, end_time):
         """Get a array performance metrics from VMAX unipshere REST API.
         :param array: the array serial number
         :param start_time: start time for collection

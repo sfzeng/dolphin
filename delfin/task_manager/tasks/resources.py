@@ -434,6 +434,9 @@ class StorageQuotaTask(StorageResourceTask):
                 db.quotas_create(self.context, add_list)
         except AttributeError as e:
             LOG.error(e)
+        except NotImplementedError:
+            # Ignore this exception because driver may not support it.
+            pass
         except Exception as e:
             msg = _('Failed to sync Quotas entry in DB: {0}'
                     .format(e))
