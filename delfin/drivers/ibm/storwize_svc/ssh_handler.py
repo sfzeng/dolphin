@@ -416,7 +416,7 @@ class SSHHandler(object):
                 self.handle_detail(deltail_info, control_map, split=' ')
                 status = constants.ControllerStatus.NORMAL
                 if control_map.get('degraded') == 'yes':
-                    status = constants.ControllerStatus.OFFLINE
+                    status = constants.ControllerStatus.DEGRADED
                 soft_version = '%s %s' % (control_map.get('vendor_id'),
                                           control_map.get('product_id_low'))
                 controller_result = {
@@ -500,6 +500,9 @@ class SSHHandler(object):
                 port_type = constants.PortType.ETH
             location = '%s_%s' % (port_map.get('node_name'),
                                   port_map.get('id'))
+            speed = None
+            if port_map.get('port_speed')[:-2].isdigit():
+                speed = int(self.parse_string(port_map.get('port_speed')))
             port_result = {
                 'name': port_map.get('id'),
                 'storage_id': storage_id,
@@ -508,8 +511,7 @@ class SSHHandler(object):
                 'connection_status': conn_status,
                 'health_status': status,
                 'type': port_type,
-                'max_speed':
-                    int(self.parse_string(port_map.get('port_speed'))),
+                'max_speed': speed,
                 'native_parent_id': port_map.get('node_name'),
                 'wwn': port_map.get('WWPN')
             }
